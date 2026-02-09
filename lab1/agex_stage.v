@@ -42,12 +42,13 @@ module AGEX_STAGE(
   reg [`DBITS-1:0] br_target_AGEX;
   wire br_mispred_AGEX;
 
+  reg [`DBITS-1:0] aluout_AGEX;
   
   // Calculate branch condition
   // TODO: complete the code
   always @ (*) begin
     case (op_I_AGEX)
-      `BEQ_I : br_cond_AGEX = 1; // write correct code to check the branch condition. 
+      `BEQ_I : br_cond_AGEX = (regval1_AGEX == regval2_AGEX); // Branch if equal
       /*
       `BNE_I : ...
       `BLT_I : ...
@@ -62,22 +63,27 @@ module AGEX_STAGE(
   // Compute ALU operations  (alu out or memory addresses)
   // TODO: complete the code
   always @ (*) begin
-    // case (op_I_AGEX)
-    //   default: begin
-    //     aluout_AGEX  = '0;
-    //   end
-    // endcase
+    case (op_I_AGEX)
+      `ADD_I:  aluout_AGEX = regval1_AGEX + regval2_AGEX;      // ADD: rd = rs1 + rs2
+      `ADDI_I: aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;      // ADDI: rd = rs1 + imm
+      default: begin
+        aluout_AGEX  = '0;
+      end
+    endcase
   end 
 
   // branch target needs to be computed here 
   // computed branch target needs to send to other pipeline stages (br_target_AGEX)
   // TODO: complete the code
   always @(*)begin
-    // if (is_br_AGEX && br_cond_AGEX) 
+    if (is_br_AGEX && br_cond_AGEX) 
+      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;  // Branch target = PC + offset
+    else
+      br_target_AGEX = pcplus_AGEX;             // No branch, continue to next instruction
   end
 
-  assign br_mispred_AGEX = (is_br_AGEX
-                         && (br_target_AGEX != pcplus_AGEX)) ? 1 : 0;
+  // Branch misprediction occurs when a branch is taken (since we predict not-taken)
+  assign br_mispred_AGEX = (is_br_AGEX && br_cond_AGEX) ? 1 : 0;
 
     assign  {                     
                                   valid_AGEX,
@@ -86,7 +92,13 @@ module AGEX_STAGE(
                                   pcplus_AGEX,
                                   op_I_AGEX,
                                   inst_count_AGEX,
-                                          //  TODO: more signals might needed
+                                  //  TODO: more signals might needed
+                                  regval1_AGEX,
+                                  regval2_AGEX,
+                                  sxt_imm_AGEX,
+                                  is_br_AGEX,
+                                  wr_reg_AGEX,
+                                  wregno_AGEX
                                   } = from_DE_latch; 
     
  
@@ -96,7 +108,10 @@ module AGEX_STAGE(
                                 PC_AGEX,
                                 op_I_AGEX,
                                 inst_count_AGEX,
-                                       // TODO: more signals might needed
+                                // TODO: more signals might needed
+                                aluout_AGEX,
+                                wr_reg_AGEX,
+                                wregno_AGEX
                                  }; 
  
   always @ (posedge clk ) begin
@@ -113,11 +128,14 @@ module AGEX_STAGE(
   // forward signals to FE stage
   assign from_AGEX_to_FE = { 
       //  TODO: more signals might needed
+      br_mispred_AGEX,
+      br_target_AGEX
   };
 
   // forward signals to DE stage
   assign from_AGEX_to_DE = { 
     //  TODO: more signals might needed
+    br_mispred_AGEX
   };
 
 endmodule

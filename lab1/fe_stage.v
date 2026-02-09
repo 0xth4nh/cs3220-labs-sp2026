@@ -35,8 +35,7 @@ module FE_STAGE(
   reg [`FE_latch_WIDTH-1:0] FE_latch;  // FE latch 
   wire valid_FE;
    
-  // Valid if not in reset and not stalling
-  assign valid_FE = ~reset & ~stall_pipe_FE;
+  `UNUSED_VAR(valid_FE)
   reg [`DBITS-1:0] PC_FE_latch; // PC latch in the FE stage   // you could use a part of FE_latch as a PC latch as well 
   
   reg [`DBITS-1:0] inst_count_FE; /* for debugging purpose */ 

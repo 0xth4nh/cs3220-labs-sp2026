@@ -45,17 +45,20 @@ module AGEX_STAGE(
   reg [`DBITS-1:0] aluout_AGEX;
   
   // Calculate branch condition
-  // TODO: complete the code
+  // Signed comparison wires
+  wire signed [`DBITS-1:0] s_regval1_AGEX;
+  wire signed [`DBITS-1:0] s_regval2_AGEX;
+  assign s_regval1_AGEX = regval1_AGEX;
+  assign s_regval2_AGEX = regval2_AGEX;
+  
   always @ (*) begin
     case (op_I_AGEX)
-      `BEQ_I : br_cond_AGEX = (regval1_AGEX == regval2_AGEX); // Branch if equal
-      /*
-      `BNE_I : ...
-      `BLT_I : ...
-      `BGE_I : ...
-      `BLTU_I: ..
-      `BGEU_I : ...
-      */
+      `BEQ_I  : br_cond_AGEX = (regval1_AGEX == regval2_AGEX);           // Branch if equal
+      `BNE_I  : br_cond_AGEX = (regval1_AGEX != regval2_AGEX);           // Branch if not equal
+      `BLT_I  : br_cond_AGEX = (s_regval1_AGEX < s_regval2_AGEX);        // Branch if less than (signed)
+      `BGE_I  : br_cond_AGEX = (s_regval1_AGEX >= s_regval2_AGEX);       // Branch if greater or equal (signed)
+      `BLTU_I : br_cond_AGEX = (regval1_AGEX < regval2_AGEX);            // Branch if less than (unsigned)
+      `BGEU_I : br_cond_AGEX = (regval1_AGEX >= regval2_AGEX);           // Branch if greater or equal (unsigned)
       default : br_cond_AGEX = 1'b0;
     endcase
   end
@@ -64,8 +67,12 @@ module AGEX_STAGE(
   // TODO: complete the code
   always @ (*) begin
     case (op_I_AGEX)
-      `ADD_I:  aluout_AGEX = regval1_AGEX + regval2_AGEX;      // ADD: rd = rs1 + rs2
-      `ADDI_I: aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;      // ADDI: rd = rs1 + imm
+      `ADD_I:   aluout_AGEX = regval1_AGEX + regval2_AGEX;      // ADD: rd = rs1 + rs2
+      `ADDI_I:  aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;      // ADDI: rd = rs1 + imm
+      `AUIPC_I: aluout_AGEX = PC_AGEX + sxt_imm_AGEX;           // AUIPC: rd = PC + (imm << 12)
+      `LUI_I:   aluout_AGEX = sxt_imm_AGEX;                     // LUI: rd = imm << 12 (already shifted in imm)
+      `JAL_I:   aluout_AGEX = pcplus_AGEX;                      // JAL: rd = PC + 4 (return address)
+      `JALR_I:  aluout_AGEX = pcplus_AGEX;                      // JALR: rd = PC + 4 (return address)
       default: begin
         aluout_AGEX  = '0;
       end
@@ -75,15 +82,24 @@ module AGEX_STAGE(
   // branch target needs to be computed here 
   // computed branch target needs to send to other pipeline stages (br_target_AGEX)
   // TODO: complete the code
+  wire is_jmp_AGEX;  // JAL or JALR are unconditional jumps
+  assign is_jmp_AGEX = (op_I_AGEX == `JAL_I) || (op_I_AGEX == `JALR_I);
+  
   always @(*)begin
-    if (is_br_AGEX && br_cond_AGEX) 
-      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;  // Branch target = PC + offset
+    if (op_I_AGEX == `JAL_I) 
+      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;                    // JAL: target = PC + offset
+    else if (op_I_AGEX == `JALR_I)
+      br_target_AGEX = (regval1_AGEX + sxt_imm_AGEX) & ~32'h1;   // JALR: target = (rs1 + imm) & ~1
+    else if (is_br_AGEX && br_cond_AGEX) 
+      br_target_AGEX = PC_AGEX + sxt_imm_AGEX;                    // Branch target = PC + offset
     else
-      br_target_AGEX = pcplus_AGEX;             // No branch, continue to next instruction
+      br_target_AGEX = pcplus_AGEX;                               // No branch, continue to next instruction
   end
 
-  // Branch misprediction occurs when a branch is taken (since we predict not-taken)
-  assign br_mispred_AGEX = (is_br_AGEX && br_cond_AGEX) ? 1 : 0;
+  // Branch misprediction occurs when:
+  // 1. Branch is taken (since we predict not-taken)
+  // 2. JAL or JALR (always mispredicted since we predict not-taken)
+  assign br_mispred_AGEX = ((is_br_AGEX && br_cond_AGEX) || is_jmp_AGEX) ? 1 : 0;
 
     assign  {                     
                                   valid_AGEX,

@@ -68,6 +68,7 @@ module AGEX_STAGE(
   always @ (*) begin
     case (op_I_AGEX)
       `ADD_I:   aluout_AGEX = regval1_AGEX + regval2_AGEX;      // ADD: rd = rs1 + rs2
+      `SUB_I:   aluout_AGEX = regval1_AGEX - regval2_AGEX;      // SUB: rd = rs1 - rs2
       `ADDI_I:  aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;      // ADDI: rd = rs1 + imm
       `AUIPC_I: aluout_AGEX = PC_AGEX + sxt_imm_AGEX;           // AUIPC: rd = PC + (imm << 12)
       `LUI_I:   aluout_AGEX = sxt_imm_AGEX;                     // LUI: rd = imm << 12 (already shifted in imm)

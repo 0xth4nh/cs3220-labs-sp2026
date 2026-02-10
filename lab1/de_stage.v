@@ -230,10 +230,10 @@ end
                       (op_I_DE == `BLT_I) || (op_I_DE == `BGE_I) || 
                       (op_I_DE == `BLTU_I) || (op_I_DE == `BGEU_I)) ? 1 : 0;
   
-  assign wr_reg_DE = ((op_I_DE == `ADD_I) || (op_I_DE == `ADDI_I) || 
-                      (op_I_DE == `ANDI_I) || (op_I_DE == `AUIPC_I) || 
-                      (op_I_DE == `LUI_I) || (op_I_DE == `JAL_I) || 
-                      (op_I_DE == `JALR_I)) ? ((rd_DE != 0) ? 1 : 0) : 0; 
+  assign wr_reg_DE = ((op_I_DE == `ADD_I) || (op_I_DE == `SUB_I) || 
+                      (op_I_DE == `ADDI_I) || (op_I_DE == `ANDI_I) || 
+                      (op_I_DE == `AUIPC_I) || (op_I_DE == `LUI_I) || 
+                      (op_I_DE == `JAL_I) || (op_I_DE == `JALR_I)) ? ((rd_DE != 0) ? 1 : 0) : 0; 
 
  /* this signal is passed from WB stage */ 
   wire wr_reg_WB; // is this instruction writing into a register file? 

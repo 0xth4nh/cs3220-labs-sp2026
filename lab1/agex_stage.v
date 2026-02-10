@@ -38,6 +38,9 @@ module AGEX_STAGE(
   wire [`DBITS-1:0] regval1_AGEX;
   wire [`DBITS-1:0] regval2_AGEX;
   wire [`DBITS-1:0] sxt_imm_AGEX;
+  
+  wire is_load_AGEX;   // is load instruction
+  wire is_store_AGEX;  // is store instruction
 
   reg [`DBITS-1:0] br_target_AGEX;
   wire br_mispred_AGEX;
@@ -64,16 +67,53 @@ module AGEX_STAGE(
   end
 
   // Compute ALU operations  (alu out or memory addresses)
-  // TODO: complete the code
+  // Signed wires for signed operations
+  wire signed [`DBITS-1:0] s_regval1_ALU;
+  wire signed [`DBITS-1:0] s_sxt_imm;
+  assign s_regval1_ALU = regval1_AGEX;
+  assign s_sxt_imm = sxt_imm_AGEX;
+  
   always @ (*) begin
     case (op_I_AGEX)
-      `ADD_I:   aluout_AGEX = regval1_AGEX + regval2_AGEX;      // ADD: rd = rs1 + rs2
-      `SUB_I:   aluout_AGEX = regval1_AGEX - regval2_AGEX;      // SUB: rd = rs1 - rs2
-      `ADDI_I:  aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;      // ADDI: rd = rs1 + imm
-      `AUIPC_I: aluout_AGEX = PC_AGEX + sxt_imm_AGEX;           // AUIPC: rd = PC + (imm << 12)
-      `LUI_I:   aluout_AGEX = sxt_imm_AGEX;                     // LUI: rd = imm << 12 (already shifted in imm)
-      `JAL_I:   aluout_AGEX = pcplus_AGEX;                      // JAL: rd = PC + 4 (return address)
-      `JALR_I:  aluout_AGEX = pcplus_AGEX;                      // JALR: rd = PC + 4 (return address)
+      // Arithmetic
+      `ADD_I:   aluout_AGEX = regval1_AGEX + regval2_AGEX;                    // ADD: rd = rs1 + rs2
+      `SUB_I:   aluout_AGEX = regval1_AGEX - regval2_AGEX;                    // SUB: rd = rs1 - rs2
+      `ADDI_I:  aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;                    // ADDI: rd = rs1 + imm
+      
+      // Logic operations
+      `AND_I:   aluout_AGEX = regval1_AGEX & regval2_AGEX;                    // AND: rd = rs1 & rs2
+      `ANDI_I:  aluout_AGEX = regval1_AGEX & sxt_imm_AGEX;                    // ANDI: rd = rs1 & imm
+      `OR_I:    aluout_AGEX = regval1_AGEX | regval2_AGEX;                    // OR: rd = rs1 | rs2
+      `ORI_I:   aluout_AGEX = regval1_AGEX | sxt_imm_AGEX;                    // ORI: rd = rs1 | imm
+      `XOR_I:   aluout_AGEX = regval1_AGEX ^ regval2_AGEX;                    // XOR: rd = rs1 ^ rs2
+      `XORI_I:  aluout_AGEX = regval1_AGEX ^ sxt_imm_AGEX;                    // XORI: rd = rs1 ^ imm
+      
+      // Shifts
+      `SLL_I:   aluout_AGEX = regval1_AGEX << regval2_AGEX[4:0];              // SLL: rd = rs1 << rs2[4:0]
+      `SLLI_I:  aluout_AGEX = regval1_AGEX << sxt_imm_AGEX[4:0];              // SLLI: rd = rs1 << imm[4:0]
+      `SRL_I:   aluout_AGEX = regval1_AGEX >> regval2_AGEX[4:0];              // SRL: rd = rs1 >> rs2[4:0] (logical)
+      `SRLI_I:  aluout_AGEX = regval1_AGEX >> sxt_imm_AGEX[4:0];              // SRLI: rd = rs1 >> imm[4:0] (logical)
+      `SRA_I:   aluout_AGEX = s_regval1_ALU >>> regval2_AGEX[4:0];            // SRA: rd = rs1 >>> rs2[4:0] (arithmetic)
+      `SRAI_I:  aluout_AGEX = s_regval1_ALU >>> sxt_imm_AGEX[4:0];            // SRAI: rd = rs1 >>> imm[4:0] (arithmetic)
+      
+      // Set less than
+      `SLT_I:   aluout_AGEX = (s_regval1_AGEX < s_regval2_AGEX) ? 1 : 0;      // SLT: rd = (rs1 < rs2) signed
+      `SLTI_I:  aluout_AGEX = (s_regval1_ALU < s_sxt_imm) ? 1 : 0;            // SLTI: rd = (rs1 < imm) signed
+      `SLTU_I:  aluout_AGEX = (regval1_AGEX < regval2_AGEX) ? 1 : 0;          // SLTU: rd = (rs1 < rs2) unsigned
+      `SLTIU_I: aluout_AGEX = (regval1_AGEX < sxt_imm_AGEX) ? 1 : 0;          // SLTIU: rd = (rs1 < imm) unsigned
+      
+      // Upper immediate
+      `AUIPC_I: aluout_AGEX = PC_AGEX + sxt_imm_AGEX;                         // AUIPC: rd = PC + (imm << 12)
+      `LUI_I:   aluout_AGEX = sxt_imm_AGEX;                                   // LUI: rd = imm << 12 (already shifted)
+      
+      // Jump
+      `JAL_I:   aluout_AGEX = pcplus_AGEX;                                    // JAL: rd = PC + 4 (return address)
+      `JALR_I:  aluout_AGEX = pcplus_AGEX;                                    // JALR: rd = PC + 4 (return address)
+      
+      // Memory (address calculation)
+      `LW_I:    aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;                    // LW: addr = rs1 + offset
+      `SW_I:    aluout_AGEX = regval1_AGEX + sxt_imm_AGEX;                    // SW: addr = rs1 + offset
+      
       default: begin
         aluout_AGEX  = '0;
       end
@@ -115,7 +155,9 @@ module AGEX_STAGE(
                                   sxt_imm_AGEX,
                                   is_br_AGEX,
                                   wr_reg_AGEX,
-                                  wregno_AGEX
+                                  wregno_AGEX,
+                                  is_load_AGEX,
+                                  is_store_AGEX
                                   } = from_DE_latch; 
     
  
@@ -128,7 +170,10 @@ module AGEX_STAGE(
                                 // TODO: more signals might needed
                                 aluout_AGEX,
                                 wr_reg_AGEX,
-                                wregno_AGEX
+                                wregno_AGEX,
+                                is_load_AGEX,
+                                is_store_AGEX,
+                                regval2_AGEX  // for SW: data to write
                                  }; 
  
   always @ (posedge clk ) begin

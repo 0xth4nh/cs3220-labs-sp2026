@@ -44,7 +44,9 @@ module MEM_STAGE(
   wire [`DBITS-1:0] memaddr_MEM;  // memory address. need to be computed in AGEX stage and pass through a latch 
   wire [`DBITS-1:0] rd_val_MEM;  // memory read value 
   wire [`DBITS-1:0] wr_val_MEM;  // memory write value 
-  wire wr_mem_MEM;  // is this instruction writing a value into memory? 
+  wire wr_mem_MEM;  // is this instruction writing a value into memory?
+  wire is_load_MEM;  // is load instruction
+  wire is_store_MEM; // is store instruction 
   // Read from D-MEM  (read code is completed if there is a correct memaddr_MEM ) 
   assign rd_val_MEM = dmem[memaddr_MEM[`DMEMADDRBITS-1:`DMEMWORDBITS]];
 
@@ -56,10 +58,6 @@ module MEM_STAGE(
       
       dmem[memaddr_MEM[`DMEMADDRBITS-1:`DMEMWORDBITS]] <= wr_val_MEM; 
   end
-  `UNUSED_VAR (memaddr_MEM)
-
-   
-  `UNUSED_VAR (rd_mem_MEM)
     
    assign MEM_latch_out = MEM_latch; 
 
@@ -72,8 +70,17 @@ module MEM_STAGE(
                                  // more signals might need
                                 aluout_MEM,
                                 wr_reg_MEM,
-                                wregno_MEM
-                                 } = from_AGEX_latch;  
+                                wregno_MEM,
+                                is_load_MEM,
+                                is_store_MEM,
+                                wr_val_MEM  // data to write for SW
+                                 } = from_AGEX_latch;
+   
+   // Memory address is the ALU output (rs1 + offset)
+   assign memaddr_MEM = aluout_MEM;
+   
+   // Write to memory on SW instruction
+   assign wr_mem_MEM = is_store_MEM;  
  
 
    
@@ -86,7 +93,9 @@ module MEM_STAGE(
                                         // more signals might need 
                                 aluout_MEM,
                                 wr_reg_MEM,
-                                wregno_MEM                
+                                wregno_MEM,
+                                is_load_MEM,
+                                rd_val_MEM  // memory read data for LW
    };
  
 

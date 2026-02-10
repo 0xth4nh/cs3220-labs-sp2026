@@ -27,6 +27,7 @@ module WB_STAGE(
 
   wire [`DBITS-1:0] aluout_WB;
   wire [`DBITS-1:0] rd_val_WB;
+  wire is_load_WB;
 
   // **TODO: Complete the rest of the pipeline**
  
@@ -40,13 +41,15 @@ module WB_STAGE(
                                 // more signals might need   
                                 aluout_WB, 
                                 wr_reg_WB,
-                                wregno_WB        
+                                wregno_WB,
+                                is_load_WB,
+                                rd_val_WB
                                  } = from_MEM_latch; 
         
         // write register by sending data to the DE stage 
-        
+        // For LW, write memory data; for other instructions, write ALU result
 
-assign regval_WB = aluout_WB;
+assign regval_WB = is_load_WB ? rd_val_WB : aluout_WB;
 
 // forward signals to FE stage
 assign from_WB_to_FE = '0;

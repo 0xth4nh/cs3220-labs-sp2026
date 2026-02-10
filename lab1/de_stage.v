@@ -215,6 +215,8 @@ end
 
   wire is_br_DE;    // is conditional branch instr
   wire wr_reg_DE;   // is writing back to register file
+  wire is_load_DE;  // is load instruction
+  wire is_store_DE; // is store instruction
 
   // Decode instruction registers
   assign rs1_DE = inst_DE[19:15];
@@ -230,10 +232,35 @@ end
                       (op_I_DE == `BLT_I) || (op_I_DE == `BGE_I) || 
                       (op_I_DE == `BLTU_I) || (op_I_DE == `BGEU_I)) ? 1 : 0;
   
-  assign wr_reg_DE = ((op_I_DE == `ADD_I) || (op_I_DE == `SUB_I) || 
-                      (op_I_DE == `ADDI_I) || (op_I_DE == `ANDI_I) || 
-                      (op_I_DE == `AUIPC_I) || (op_I_DE == `LUI_I) || 
-                      (op_I_DE == `JAL_I) || (op_I_DE == `JALR_I)) ? ((rd_DE != 0) ? 1 : 0) : 0; 
+  // Determine if instruction writes to register file
+  reg wr_reg_DE_temp;
+  always @(*) begin
+    case (op_I_DE)
+      // Arithmetic
+      `ADD_I, `SUB_I, `ADDI_I,
+      // Logic
+      `AND_I, `ANDI_I, `OR_I, `ORI_I, `XOR_I, `XORI_I,
+      // Shifts
+      `SLL_I, `SLLI_I, `SRL_I, `SRLI_I, `SRA_I, `SRAI_I,
+      // Set less than
+      `SLT_I, `SLTI_I, `SLTU_I, `SLTIU_I,
+      // Upper immediate
+      `AUIPC_I, `LUI_I,
+      // Jump
+      `JAL_I, `JALR_I,
+      // Load
+      `LW_I:
+        wr_reg_DE_temp = (rd_DE != 0) ? 1 : 0;
+      default:
+        wr_reg_DE_temp = 0;
+    endcase
+  end
+  
+  assign wr_reg_DE = wr_reg_DE_temp;
+  
+  // Memory operation detection
+  assign is_load_DE  = (op_I_DE == `LW_I) ? 1 : 0;
+  assign is_store_DE = (op_I_DE == `SW_I) ? 1 : 0; 
 
  /* this signal is passed from WB stage */ 
   wire wr_reg_WB; // is this instruction writing into a register file? 
@@ -332,7 +359,9 @@ end
                                   sxt_imm_DE,
                                   is_br_DE,
                                   wr_reg_DE,
-                                  rd_DE
+                                  rd_DE,
+                                  is_load_DE,
+                                  is_store_DE
                                   }; 
 
 

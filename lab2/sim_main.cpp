@@ -1,6 +1,7 @@
 // DESCRIPTION:  simulation of pipeline 
 //======================================================================
 #include <iostream>
+#include <iomanip>
 
 // Include common routines
 #include <verilated.h>
@@ -94,6 +95,18 @@ int main(int argc, char** argv, char** env) {
 #ifdef DPRINTF
     std::cout << "Total instructions=" << std::dec << inst_count_WB << ", cycles=" << (timestamp_WB / 2) << ", IPC=" << ((inst_count_WB * 2.0f) / timestamp_WB) << std::endl; 
 #endif
+
+    // Print branch prediction accuracy
+    {
+        int total = (int)dut->pipeline->my_AGEX_stage->total_branches;
+        int correct = (int)dut->pipeline->my_AGEX_stage->correct_predictions;
+        if (total > 0) {
+            float acc = (correct * 100.0f) / total;
+            std::cout << "Accuracy=" << std::fixed << std::setprecision(2) << acc << "%" << std::endl;
+        } else {
+            std::cout << "Accuracy=0%" << std::endl;
+        }
+    }
 
     int exitcode = (int)dut->pipeline->my_WB_stage->last_WB_value[3];
 

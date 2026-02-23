@@ -332,14 +332,19 @@ end
     end
   end
 
+  wire [7:0] pht_index_DE;
+  wire [`DBITS-1:0] predicted_next_pc_DE;
+
 // decoding the contents of FE latch out. the order should be matched with the fe_stage.v 
   assign {
             valid_DE,
             inst_DE,
             PC_DE, 
             pcplus_DE,
-            inst_count_DE 
-            }  = from_FE_latch;  // based on the contents of the latch, you can decode the content 
+            inst_count_DE,
+            pht_index_DE,
+            predicted_next_pc_DE
+            }  = from_FE_latch;
 
 
 // assign wire to send the contents of DE latch to other pipeline stages  
@@ -352,7 +357,6 @@ end
                                   pcplus_DE,
                                   op_I_DE,
                                   inst_count_DE,
-                                  // more signals might need
                                   rs1_val_DE,
                                   rs2_val_DE,    
                                   sxt_imm_DE,
@@ -361,7 +365,9 @@ end
                                   rd_mem_DE,
                                   wr_mem_DE,
                                   wr_reg_DE,
-                                  rd_DE
+                                  rd_DE,
+                                  pht_index_DE,
+                                  predicted_next_pc_DE
                                   }; 
 
 

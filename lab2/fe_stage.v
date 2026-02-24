@@ -56,9 +56,9 @@ module FE_STAGE(
   reg [25:0] btb_tag [0:15];
   reg [`DBITS-1:0] btb_target [0:15];
 
-  // PHT index = PC[9:2] XOR BHR
+  // PHT index = PC[11:4] XOR BHR (Variant 1: higher PC bits)
   wire [7:0] pht_index_FE;
-  assign pht_index_FE = PC_FE_latch[9:2] ^ BHR;
+  assign pht_index_FE = PC_FE_latch[11:4] ^ BHR;
 
   // BTB lookup using PC[5:2]
   wire [3:0] btb_index_FE;

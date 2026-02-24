@@ -332,7 +332,7 @@ end
     end
   end
 
-  wire [9:0] pht_index_DE;
+  wire [7:0] pht_index_DE;
   wire [`DBITS-1:0] predicted_next_pc_DE;
 
 // decoding the contents of FE latch out. the order should be matched with the fe_stage.v 

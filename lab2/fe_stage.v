@@ -150,11 +150,11 @@ module FE_STAGE(
     if (reset) begin
       BHR <= 8'b0;
       for (i = 0; i < 256; i = i + 1)
-        PHT[i] <= 2'b01;
+        PHT[i] = 2'b01;
       for (i = 0; i < 16; i = i + 1) begin
-        btb_valid[i] <= 1'b0;
-        btb_tag[i] <= 26'b0;
-        btb_target[i] <= 32'b0;
+        btb_valid[i] = 1'b0;
+        btb_tag[i] = 26'b0;
+        btb_target[i] = 32'b0;
       end
     end else if (update_bp_AGEX) begin
       // BTB update

@@ -45,27 +45,27 @@ module FE_STAGE(
 
   // ============ Branch Predictor Structures ============
 
-  // Branch History Register (8 bits)
-  reg [7:0] BHR;
+  // Branch History Register (10 bits) -- Variant 3
+  reg [9:0] BHR;
 
-  // Pattern History Table: 256 entries of 2-bit saturating counters
-  reg [1:0] PHT [0:255];
+  // Pattern History Table: 1024 entries of 2-bit saturating counters -- Variant 3
+  reg [1:0] PHT [0:1023];
 
-  // Branch Target Buffer: 32 entries (valid, tag[24:0], target[31:0]) -- Variant 2
-  reg btb_valid [0:31];
-  reg [24:0] btb_tag [0:31];
-  reg [`DBITS-1:0] btb_target [0:31];
+  // Branch Target Buffer: 16 entries (valid, tag[25:0], target[31:0])
+  reg btb_valid [0:15];
+  reg [25:0] btb_tag [0:15];
+  reg [`DBITS-1:0] btb_target [0:15];
 
-  // PHT index = PC[9:2] XOR BHR
-  wire [7:0] pht_index_FE;
-  assign pht_index_FE = PC_FE_latch[9:2] ^ BHR;
+  // PHT index = PC[11:2] XOR BHR (10-bit) -- Variant 3
+  wire [9:0] pht_index_FE;
+  assign pht_index_FE = PC_FE_latch[11:2] ^ BHR;
 
-  // BTB lookup using PC[6:2] -- Variant 2: 32-entry BTB
-  wire [4:0] btb_index_FE;
-  assign btb_index_FE = PC_FE_latch[6:2];
+  // BTB lookup using PC[5:2]
+  wire [3:0] btb_index_FE;
+  assign btb_index_FE = PC_FE_latch[5:2];
 
   wire btb_hit_FE;
-  assign btb_hit_FE = btb_valid[btb_index_FE] && (btb_tag[btb_index_FE] == PC_FE_latch[31:7]);
+  assign btb_hit_FE = btb_valid[btb_index_FE] && (btb_tag[btb_index_FE] == PC_FE_latch[31:6]);
 
   // PHT prediction: taken if counter >= 2 (i.e., MSB is 1)
   wire pht_taken_FE;
@@ -82,7 +82,7 @@ module FE_STAGE(
   wire update_bp_AGEX;
   wire [`DBITS-1:0] btb_write_pc_AGEX;
   wire [`DBITS-1:0] btb_write_target_AGEX;
-  wire [7:0] pht_update_index_AGEX;
+  wire [9:0] pht_update_index_AGEX;
   wire br_taken_AGEX;
 
   assign {
@@ -148,19 +148,19 @@ module FE_STAGE(
   integer i;
   always @ (posedge clk) begin
     if (reset) begin
-      BHR <= 8'b0;
-      for (i = 0; i < 256; i = i + 1)
+      BHR <= 10'b0;
+      for (i = 0; i < 1024; i = i + 1)
         PHT[i] = 2'b01;
-      for (i = 0; i < 32; i = i + 1) begin
+      for (i = 0; i < 16; i = i + 1) begin
         btb_valid[i] = 1'b0;
-        btb_tag[i] = 25'b0;
+        btb_tag[i] = 26'b0;
         btb_target[i] = 32'b0;
       end
     end else if (update_bp_AGEX) begin
-      // BTB update (32-entry, Variant 2)
-      btb_valid[btb_write_pc_AGEX[6:2]] <= 1'b1;
-      btb_tag[btb_write_pc_AGEX[6:2]] <= btb_write_pc_AGEX[31:7];
-      btb_target[btb_write_pc_AGEX[6:2]] <= btb_write_target_AGEX;
+      // BTB update
+      btb_valid[btb_write_pc_AGEX[5:2]] <= 1'b1;
+      btb_tag[btb_write_pc_AGEX[5:2]] <= btb_write_pc_AGEX[31:6];
+      btb_target[btb_write_pc_AGEX[5:2]] <= btb_write_target_AGEX;
 
       // PHT update (2-bit saturating counter)
       if (br_taken_AGEX) begin
@@ -171,8 +171,8 @@ module FE_STAGE(
           PHT[pht_update_index_AGEX] <= PHT[pht_update_index_AGEX] - 1;
       end
 
-      // BHR update (left shift, insert outcome in LSB)
-      BHR <= {BHR[6:0], br_taken_AGEX};
+      // BHR update (left shift, insert outcome in LSB) -- Variant 3: 10-bit
+      BHR <= {BHR[8:0], br_taken_AGEX};
     end
   end
 

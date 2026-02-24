@@ -41,7 +41,7 @@ module AGEX_STAGE(
   wire [`DBITS-1:0] regval1_AGEX;
   wire [`DBITS-1:0] regval2_AGEX;
   wire [`DBITS-1:0] sxt_imm_AGEX;
-  wire [7:0] pht_index_AGEX;
+  wire [9:0] pht_index_AGEX;
   wire [`DBITS-1:0] predicted_next_pc_AGEX;
 
   reg [`DBITS-1:0] aluout_AGEX;

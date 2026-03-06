@@ -313,7 +313,16 @@ module DE_STAGE(
   assign has_data_hazards = (use_rs1_DE && in_use_regs[rs1_DE]) 
                          || (use_rs2_DE && in_use_regs[rs2_DE]);
 
-  assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX;
+  // Part 2: stall LW to OP1/OP2 when ALU port not ready
+  wire is_load_op1 = valid_DE && (op_I_DE == `LW_I) && (rd_DE == `OP1_REG_IDX);
+  wire is_load_op2 = valid_DE && (op_I_DE == `LW_I) && (rd_DE == `OP2_REG_IDX);
+  wire alu_op1_port_busy = is_load_op1 && ~csr_alu_out[0];
+  wire alu_op2_port_busy = is_load_op2 && ~csr_alu_out[1];
+  // Bonus: stall SW to OP3 when ALU result not yet valid
+  wire is_store_op3 = valid_DE && (op_I_DE == `SW_I) && (rs2_DE == `OP3_REG_IDX);
+  wire alu_result_not_ready = is_store_op3 && ~csr_alu_out[2];
+  wire alu_not_ready_stall = alu_op1_port_busy || alu_op2_port_busy || alu_result_not_ready;
+  assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX || alu_not_ready_stall;
 
   always @(posedge clk) begin
     if (reset) begin

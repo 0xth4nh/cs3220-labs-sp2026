@@ -313,7 +313,6 @@ module DE_STAGE(
   assign has_data_hazards = (use_rs1_DE && in_use_regs[rs1_DE]) 
                          || (use_rs2_DE && in_use_regs[rs2_DE]);
 
-  //TODO: part2/bonus modify as necessary
   assign pipeline_stall_DE = has_data_hazards || br_mispred_AGEX;
 
   always @(posedge clk) begin
@@ -342,6 +341,11 @@ module DE_STAGE(
     if (wr_reg_WB) begin
 		  reg_file[wregno_WB] <= regval_WB; 
     end
+    if (wb_writes_aluop) alu_op_reg <= regval_WB[`ALUOPBITS-1:0];
+    if (wb_writes_op1)   alu_op1_reg <= regval_WB;
+    if (wb_writes_op2)   alu_op2_reg <= regval_WB;
+    if ((alu_state == ALU_PROCESSING || alu_state == ALU_DONE) && csr_alu_out[2])
+      reg_file[`OP3_REG_IDX] <= alu_op3;
   end
 
   // the order of latch contents should be matched in the AGEX stage when we extract the contents.
@@ -385,11 +389,114 @@ module DE_STAGE(
   assign DE_latch_out = DE_latch;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //TODO: add your code here to load operands, ALUOP; 
-  //store results to memory; 
-  //forward data and control signals to FU stage; 
-  //fetch status update from FU stage; 
-  //Recommended states transition: load aluop --> load op1 --> load op2 --> alu processing --> store results to memory
-  //Need to handle the stalls from part2 
+  // External ALU integration
+
+  // Signals from FU stage
+  wire [`ALUDATABITS-1:0] alu_op3;
+  wire [`ALUCSROUTBITS-1:0] csr_alu_out;
+  assign {alu_op3, csr_alu_out} = from_FU_to_DE;
+
+  // ALU state machine states
+  localparam ALU_IDLE       = 3'd0;
+  localparam ALU_WAIT_OP1   = 3'd1;
+  localparam ALU_LOAD_OP1   = 3'd2;
+  localparam ALU_WAIT_OP2   = 3'd3;
+  localparam ALU_LOAD_OP2   = 3'd4;
+  localparam ALU_PROCESSING = 3'd5;
+  localparam ALU_DONE       = 3'd6;
+
+  reg [2:0] alu_state;
+
+  // ALU mailbox registers
+  reg [`ALUDATABITS-1:0]  alu_op1_reg;
+  reg [`ALUDATABITS-1:0]  alu_op2_reg;
+  reg [`ALUOPBITS-1:0]    alu_op_reg;
+  reg [`ALUCSRINBITS-1:0] csr_alu_in_reg;
+  reg op2_captured;
+
+  // Detect WB writes to ALU-special registers
+  wire wb_writes_aluop = wr_reg_WB && (wregno_WB == `ALUOP_REG_IDX);
+  wire wb_writes_op1   = wr_reg_WB && (wregno_WB == `OP1_REG_IDX);
+  wire wb_writes_op2   = wr_reg_WB && (wregno_WB == `OP2_REG_IDX);
+
+  // Forward signals to FU stage
+  assign from_DE_to_FU = {alu_op1_reg, alu_op2_reg, alu_op_reg, csr_alu_in_reg};
+
+  initial begin
+    alu_op1_reg = '0;
+    alu_op2_reg = '0;
+    alu_op_reg = '0;
+    csr_alu_in_reg = 3'b001;
+    op2_captured = 0;
+    alu_state = ALU_IDLE;
+  end
+
+  // ALU state machine
+  always @(posedge clk) begin
+    if (reset) begin
+      alu_state <= ALU_IDLE;
+      csr_alu_in_reg <= 3'b001;
+      op2_captured <= 0;
+    end else begin
+      case (alu_state)
+        ALU_IDLE: begin
+          csr_alu_in_reg <= 3'b001;
+          op2_captured <= 0;
+          if (wb_writes_aluop && regval_WB[`ALUOPBITS-1:0] != 0)
+            alu_state <= ALU_WAIT_OP1;
+        end
+
+        ALU_WAIT_OP1: begin
+          csr_alu_in_reg <= 3'b001;
+          if (wb_writes_op1) begin
+            alu_state <= ALU_LOAD_OP1;
+            csr_alu_in_reg <= 3'b010;
+          end
+        end
+
+        ALU_LOAD_OP1: begin
+          csr_alu_in_reg <= 3'b010;
+          if (wb_writes_op2)
+            op2_captured <= 1;
+          if (csr_alu_out[0]) begin
+            if (op2_captured || wb_writes_op2) begin
+              alu_state <= ALU_LOAD_OP2;
+              csr_alu_in_reg <= 3'b100;
+            end else begin
+              alu_state <= ALU_WAIT_OP2;
+              csr_alu_in_reg <= 3'b000;
+            end
+          end
+        end
+
+        ALU_WAIT_OP2: begin
+          csr_alu_in_reg <= 3'b000;
+          if (wb_writes_op2) begin
+            alu_state <= ALU_LOAD_OP2;
+            csr_alu_in_reg <= 3'b100;
+          end
+        end
+
+        ALU_LOAD_OP2: begin
+          csr_alu_in_reg <= 3'b100;
+          if (csr_alu_out[1]) begin
+            alu_state <= ALU_PROCESSING;
+            csr_alu_in_reg <= 3'b000;
+          end
+        end
+
+        ALU_PROCESSING: begin
+          csr_alu_in_reg <= 3'b000;
+          if (csr_alu_out[2])
+            alu_state <= ALU_DONE;
+        end
+
+        ALU_DONE: begin
+          csr_alu_in_reg <= 3'b001;
+          alu_state <= ALU_IDLE;
+        end
+      endcase
+    end
+  end
 
 endmodule

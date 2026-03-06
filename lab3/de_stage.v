@@ -495,6 +495,12 @@ module DE_STAGE(
           csr_alu_in_reg <= 3'b001;
           alu_state <= ALU_IDLE;
         end
+
+        default: begin
+          alu_state <= ALU_IDLE;
+          csr_alu_in_reg <= 3'b001;
+          op2_captured <= 0;
+        end
       endcase
     end
   end
